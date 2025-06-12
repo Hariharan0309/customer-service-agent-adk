@@ -2,6 +2,7 @@ import os.path
 import base64
 import email
 import json # Import the json module
+from email.mime.text import MIMEText # Import MIMEText for creating email messages
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -9,8 +10,13 @@ from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup # Import BeautifulSoup for HTML parsing
 
 # If modifying these scopes, delete the file token.json.
-# 'https://www.googleapis.com/auth/gmail.modify' allows reading and modifying (e.g., marking as read).
-SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
+# 'https://www.googleapis.com/auth/gmail.send' allows sending messages.
+# This scope implicitly allows reading headers and subjects for drafts,
+# but for full read access, 'gmail.readonly' or 'gmail.modify' would be needed.
+# Since the user asked for read and send, gmail.send is sufficient for the sending part.
+# For full read and send capability, 'https://www.googleapis.com/auth/gmail.compose' or 'https://www.googleapis.com/auth/gmail.modify' is generally used.
+# However, for just sending, 'gmail.send' is less permissive.
+SCOPES = ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/gmail.modify'] # Added gmail.modify to keep read/unread functionality
 
 def authenticate_gmail_api():
     """
@@ -263,6 +269,38 @@ def read_unread_emails_one_by_one(service):
     except Exception as e:
         print(f"An overall error occurred during unread email processing: {e}")
 
+def create_message_and_send(service, sender_email, to_email, subject, message_text):
+    """
+    Creates an email message and sends it.
+    Args:
+        service: Authenticated Gmail API service object.
+        sender_email (str): The email address of the sender ('me' is recommended).
+        to_email (str): The email address of the recipient.
+        subject (str): The subject of the email.
+        message_text (str): The plain text content of the email.
+    Returns:
+        dict: The sent message object if successful, None otherwise.
+    """
+    try:
+        message = MIMEText(message_text)
+        message['to'] = to_email
+        message['from'] = sender_email # Use 'me' for the authenticated user
+        message['subject'] = subject
+
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+        
+        sent_message = service.users().messages().send(
+            userId='me',
+            body={'raw': raw_message}
+        ).execute()
+        print(f"\nEmail sent successfully! Message ID: {sent_message['id']}")
+        return sent_message
+    except HttpError as error:
+        print(f'An HTTP error occurred while sending email: {error}')
+        return None
+    except Exception as e:
+        print(f"An error occurred while creating/sending message: {e}")
+        return None
 
 def main():
     """Shows basic usage of the Gmail API."""
@@ -274,6 +312,7 @@ def main():
             print("\nChoose an option:")
             print("1. List recent emails (first 10)")
             print("2. Read unread emails one by one and mark as read")
+            print("3. Write and send an email")
             print("q. Quit")
             
             choice = input("Enter your choice: ").lower()
@@ -308,6 +347,17 @@ def main():
                             print(f"An unexpected error occurred: {e}")
             elif choice == '2':
                 read_unread_emails_one_by_one(service)
+            elif choice == '3':
+                print("\n--- Send a New Email ---")
+                to_email = input("To (recipient's email): ")
+                subject = input("Subject: ")
+                message_body = input("Message body: ")
+                
+                # The 'From' address will automatically be the authenticated user's email if 'userId' is 'me'
+                # It's good practice to display 'me' for clarity.
+                sender_email = 'me' # The authenticated user will be the sender
+                
+                create_message_and_send(service, sender_email, to_email, subject, message_body)
             elif choice == 'q':
                 print("Exiting application.")
                 break
