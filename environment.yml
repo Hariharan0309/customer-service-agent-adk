@@ -1,9 +1,14 @@
 name: customer-service-agent
 channels:
+  - conda-forge
   - defaults
 dependencies:
   - google-auth-oauthlib
   - google-api-python-client
   - google-auth-httplib2
   - beautifulsoup4
+  - python=3.10
+  - pip
+  - pip:
+      - google-adk[database]==0.3.0
 prefix: /home/hariharan-r/miniconda3/envs/customer-service-agent
