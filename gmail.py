@@ -9,6 +9,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup # Import BeautifulSoup for HTML parsing
 
+
 # If modifying these scopes, delete the file token.json.
 # 'https://www.googleapis.com/auth/gmail.send' allows sending messages.
 # This scope implicitly allows reading headers and subjects for drafts,
@@ -54,43 +55,6 @@ def authenticate_gmail_api():
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
     return creds
-
-def list_recent_messages(service, max_results=10):
-    """
-    Lists recent email subjects and senders.
-    Args:
-        service: Authenticated Gmail API service object.
-        max_results (int): Maximum number of messages to list.
-    Returns:
-        list: A list of dictionaries, each containing 'id', 'sender', and 'subject'.
-    """
-    messages_data = []
-    try:
-        # Call the Gmail API to get a list of messages
-        results = service.users().messages().list(userId='me', maxResults=max_results).execute()
-        messages = results.get('messages', [])
-
-        if not messages:
-            print('No messages found.')
-            return []
-
-        print(f'\nRecent {max_results} Emails:')
-        print('----------------------------------------------------')
-        for i, message in enumerate(messages):
-            msg = service.users().messages().get(userId='me', id=message['id'], format='metadata').execute()
-            headers = msg['payload']['headers']
-            
-            sender = next((h['value'] for h in headers if h['name'] == 'From'), 'N/A')
-            subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'N/A')
-            
-            print(f'{i + 1}. From: {sender} | Subject: {subject}')
-            messages_data.append({'id': message['id'], 'sender': sender, 'subject': subject})
-        print('----------------------------------------------------')
-        return messages_data
-
-    except HttpError as error:
-        print(f'An HTTP error occurred: {error}')
-        return []
 
 def get_message_content(service, msg_id):
     """

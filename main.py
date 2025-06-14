@@ -1,78 +1,131 @@
-from gmail import authenticate_gmail_api, list_recent_messages, get_message_content, read_unread_emails_one_by_one, create_message_and_send
+from gmail import authenticate_gmail_api, get_message_content, read_unread_emails_one_by_one, create_message_and_send, mark_message_as_read
 import json
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-"""
-This script provides a command-line interface to interact with the Gmail API.
-It allows users to list recent emails, read unread emails one by one, and send new emails.
-"""
 
-def main():
-    """Shows basic usage of the Gmail API."""
+
+# Agent devevlopment kit includes
+import asyncio
+from dotenv import load_dotenv
+from google.adk.runners import Runner
+from google.adk.sessions import DatabaseSessionService
+from memory_agent.agent import memory_agent
+from utils import call_agent_async, parse_sender_info
+
+load_dotenv()
+
+# ===== PART 1: Initialize Persistent Session Service =====
+# Using SQLite database for persistent storage
+db_url = "sqlite:///./my_agent_data.db"
+session_service = DatabaseSessionService(db_url=db_url)
+
+
+async def main_async():
+    # Setup constants
+    APP_NAME = "Memory Agent"
+    USER_ID = "Hariharan"
+    # ===== PART 1: Authenticate Gmail API and Reading the Gmail=====
     try:
         creds = authenticate_gmail_api()
         service = build('gmail', 'v1', credentials=creds)
-
         while True:
-            print("\nChoose an option:")
-            print("1. List recent emails (first 10)")
-            print("2. Read unread emails one by one and mark as read")
-            print("3. Write and send an email")
-            print("q. Quit")
-            
-            choice = input("Enter your choice: ").lower()
+            try:
+                # Fetch unread messages
+                results = service.users().messages().list(userId='me', q='is:unread').execute()
+                messages = results.get('messages', [])
 
-            if choice == '1':
-                messages = list_recent_messages(service)
-                if messages:
-                    while True:
-                        try:
-                            sub_choice = input("\nEnter the number of the email you want to read (or 'b' to go back to main menu): ")
-                            if sub_choice.lower() == 'b':
-                                break
-                            
-                            idx = int(sub_choice) - 1
-                            if 0 <= idx < len(messages):
-                                selected_message_id = messages[idx]['id']
-                                print(f"Fetching full details for email from '{messages[idx]['sender']}' with subject: '{messages[idx]['subject']}'")
-                                
-                                email_data = get_message_content(service, selected_message_id)
-                                
-                                if email_data:
-                                    print('\n--- Email Details (JSON Format) ---')
-                                    print(json.dumps(email_data, indent=4))
-                                    print('----------------------------------------------------')
-                                else:
-                                    print("Could not retrieve full details for the selected email.")
-                            else:
-                                print("Invalid number. Please try again.")
-                        except ValueError:
-                            print("Invalid input. Please enter a number or 'b'.")
-                        except Exception as e:
-                            print(f"An unexpected error occurred: {e}")
-            elif choice == '2':
-                read_unread_emails_one_by_one(service)
-            elif choice == '3':
-                print("\n--- Send a New Email ---")
-                to_email = input("To (recipient's email): ")
-                subject = input("Subject: ")
-                message_body = input("Message body: ")
-                
-                # The 'From' address will automatically be the authenticated user's email if 'userId' is 'me'
-                # It's good practice to display 'me' for clarity.
-                sender_email = 'me' # The authenticated user will be the sender
-                
-                create_message_and_send(service, sender_email, to_email, subject, message_body)
-            elif choice == 'q':
-                print("Exiting application.")
-                break
-            else:
-                print("Invalid choice. Please try again.")
+                if not messages:
+                    print('\nNo unread messages found.')
+                    return
 
+                print(f'\nFound {len(messages)} unread email(s). Processing one by one:')
+                print('----------------------------------------------------')
+                
+                for i, message in enumerate(messages):
+                    msg_id = message['id']
+                    print(f"\n--- Processing Unread Email {i + 1}/{len(messages)} ---")
+                    
+                    # Get email content
+                    email_data = get_message_content(service, msg_id)
+                    if email_data:
+                        # Print all extracted data (optional)
+                        print(json.dumps(email_data, indent=4))
+                        
+                        # Specifically access and print the sender's email ID
+                        sender_id_str = email_data.get('sender_email')
+                        email_subject = email_data.get('subject', 'No Subject')
+                        email_body = email_data.get('message_body', 'No Body')
+                        print(f"Sender Email ID: {sender_id_str}")
+                        print(f"Email Subject: {email_subject}")
+                        print(f"Email Body: {email_body}")
+                        sender_info_dict = parse_sender_info(sender_id_str)
+                        print(f"Parsed Sender Info: {sender_info_dict}")
+                        USER_ID = sender_info_dict['email']
+                        print(f"Using User ID: {USER_ID}")
+                        
+                        # ===== Mark the message as read =====
+                        mark_message_as_read(service, msg_id)
+
+                        # ===== PART 2: Define Initial State =====
+                        # This will only be used when creating a new session
+                        initial_state = {
+                        "user_name":   sender_info_dict['name'],
+                        "reminders": [],
+                        }
+
+                        # ===== PART 3: Session Management - Find or Create =====
+                        # Check for existing sessions for this user
+                        existing_sessions = session_service.list_sessions(
+                            app_name=APP_NAME,
+                            user_id=USER_ID,
+                        )
+
+                        # If there's an existing session, use it, otherwise create a new one
+                        if existing_sessions and len(existing_sessions.sessions) > 0:
+                            # Use the most recent session
+                            SESSION_ID = existing_sessions.sessions[0].id
+                            print(f"Continuing existing session: {SESSION_ID}")
+                        else:
+                            # Create a new session with initial state
+                            new_session = session_service.create_session(
+                                app_name=APP_NAME,
+                                user_id=USER_ID,
+                                state=initial_state,
+                            )
+                            SESSION_ID = new_session.id
+                            print(f"Created new session: {SESSION_ID}")
+                        # ===== PART 4: Agent Runner Setup =====
+                        # Create a runner with the memory agent
+                        runner = Runner(
+                            agent=memory_agent,
+                            app_name=APP_NAME,
+                            session_service=session_service,
+                        )
+                        # ===== PART 5: Interactive Conversation Loop =====
+                        print("\nWelcome to Memory Agent Chat!")
+                        print("Your reminders will be remembered across conversations.")
+
+                        final_response = await call_agent_async(runner, USER_ID, SESSION_ID, email_body)
+
+                        if final_response:
+                            create_message_and_send(
+                                service=service,
+                                sender_email='me', # The authenticated user sends the reply
+                                to_email=USER_ID, # Send back to the original sender
+                                subject=email_subject,
+                                message_text=final_response
+                            )
+                    else:
+                        print(f"Failed to retrieve content for message ID: {msg_id}")
+                        continue
+            except HttpError as error:
+                print(f'An HTTP error occurred: {error}')
+            except Exception as e:
+                print(f"An overall error occurred during unread email processing: {e}")
     except HttpError as error:
         print(f'An HTTP error occurred: {error}')
     except Exception as e:
         print(f"An overall error occurred: {e}")
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    asyncio.run(main_async())
