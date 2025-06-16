@@ -1,5 +1,33 @@
+from datetime import datetime
 from google.adk.agents import Agent
 from google.adk.tools.tool_context import ToolContext
+
+def record_manual_history_entry(input_text: str, agent_response: str, tool_context: ToolContext) -> dict:
+    """Log a custom entry to the interaction history.
+    This tool allows the agent to log a custom entry in the interaction history.
+    Args:
+        input_text: The text to log.
+        agent_response: A label for the type of action being logged (e.g., 'observation', 'user_clarification').
+        tool_context: Context for accessing and updating session state.
+    Returns:
+        A confirmation message.
+    """
+    print(f"--- Tool: record the user input and agent response '{agent_response}' ---")
+    interaction_history = tool_context.state.get("interaction_history", [])
+    
+    new_entry = {
+        "action": agent_response,
+        "text": input_text,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    # If the agent is logging its own action, its name could be added.
+    # new_entry["agent"] = "memory_agent" 
+
+    interaction_history.append(new_entry)
+    tool_context.state["interaction_history"] = interaction_history
+
+    return {"status": "success", "message": f"Custom entry logged to interaction history: {input_text}"}
+
 
 
 def add_reminder(reminder: str, tool_context: ToolContext) -> dict:
@@ -163,7 +191,13 @@ memory_agent = Agent(
     The user's information is stored in state:
     - User's name: {user_name}
     - Reminders: {reminders}
-    
+
+    Interaction History: {interaction_history}
+    - You can access the user's interaction history to provide context-aware responses.
+    - The history is stored in the session state and can be used to recall past interactions.
+    - After the user provides input, you can log it using the record_manual_history_entry tool.
+    - You can also log your own actions to keep track of what you've done.
+
     You can help users manage their reminders with the following capabilities:
     1. Add new reminders
     2. View existing reminders
@@ -215,6 +249,13 @@ memory_agent = Agent(
     
     Remember to explain that you can remember their information across conversations.
 
+    **INTERACTION HISTORY GUIDELINES:**
+    - You can log the user's input and your responses to the interaction history.
+    - Use the record_manual_history_entry tool to log custom entries.
+    - This can help you recall past interactions and provide better context-aware responses.
+    - For example, After the user provides input, you can log it like this:
+    record_manual_history_entry(input_text, agent_response, tool_context)
+
     IMPORTANT:
     - use your best judgement to determine which reminder the user is referring to. 
     - You don't have to be 100% correct, but try to be as close as possible.
@@ -226,5 +267,6 @@ memory_agent = Agent(
         update_reminder,
         delete_reminder,
         update_user_name,
+        record_manual_history_entry,
     ],
 )
