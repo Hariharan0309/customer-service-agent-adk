@@ -200,55 +200,25 @@ async def display_state(
         user_name = session.state.get("user_name", "Unknown")
         print(f"👤 User: {user_name}")
 
-        # Handle reminders
-        reminders = session.state.get("reminders", [])
-        if reminders:
-            print("📝 Reminders:")
-            for idx, reminder in enumerate(reminders, 1):
-                print(f"  {idx}. {reminder}")
+        # Handle purchased courses
+        purchased_products = session.state.get("purchased_products", [])
+        if purchased_products and any(purchased_products):
+            print("📚 Products:")
+            for product in purchased_products:
+                if isinstance(product, dict):
+                    product_id = product.get("id", "Unknown")
+                    purchase_date = product.get("purchase_date", "Unknown date")
+                    print(f"  - {product_id} (purchased on {purchase_date})")
+                elif product:  # Handle string format for backward compatibility
+                    print(f"  - {product}")
         else:
-            print("📝 Reminders: None")
-        
-        # Handle interaction history in a more readable way
-        interaction_history = session.state.get("interaction_history", [])
-        if interaction_history:
-            print("📝 Interaction History:")
-            for idx, interaction in enumerate(interaction_history, 1):
-                # Pretty format dict entries, or just show strings
-                if isinstance(interaction, dict):
-                    action = interaction.get("action", "interaction")
-                    timestamp = interaction.get("timestamp", "unknown time")
+            print("📚 Products: None")
 
-                    if action == "user_query":
-                        query = interaction.get("query", "")
-                        print(f'  {idx}. User query at {timestamp}: "{query}"')
-                    elif action == "agent_response":
-                        agent = interaction.get("agent", "unknown")
-                        response = interaction.get("response", "")
-                        # Truncate very long responses for display
-                        if len(response) > 100:
-                            response = response[:97] + "..."
-                        print(f'  {idx}. {agent} response at {timestamp}: "{response}"')
-                    else:
-                        details = ", ".join(
-                            f"{k}: {v}"
-                            for k, v in interaction.items()
-                            if k not in ["action", "timestamp"]
-                        )
-                        print(
-                            f"  {idx}. {action} at {timestamp}"
-                            + (f" ({details})" if details else "")
-                        )
-                else:
-                    print(f"  {idx}. {interaction}")
-        else:
-            print("📝 Interaction History: None")
-        
         # Show any additional state keys that might exist
         other_keys = [
             k
             for k in session.state.keys()
-            if k not in ["user_name", "purchased_courses", "interaction_history"]
+            if k not in ["user_name", "purchased_products"]
         ]
         if other_keys:
             print("🔑 Additional State:")
