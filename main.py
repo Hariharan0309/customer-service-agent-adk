@@ -9,7 +9,7 @@ import asyncio
 from dotenv import load_dotenv
 from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
-from memory_agent.agent import memory_agent
+from manager_agent.agent import manager_agent
 from utils import call_agent_async, parse_sender_info, add_user_query_to_history
 
 load_dotenv()
@@ -70,8 +70,7 @@ async def main_async():
                         # This will only be used when creating a new session
                         initial_state = {
                         "user_name":   sender_info_dict['name'],
-                        "reminders": [],
-                        "interaction_history": [],
+                        "purchased_products": [],
                         }
 
                         # ===== PART 3: Session Management - Find or Create =====
@@ -98,7 +97,7 @@ async def main_async():
                         # ===== PART 4: Agent Runner Setup =====
                         # Create a runner with the memory agent
                         runner = Runner(
-                            agent=memory_agent,
+                            agent=manager_agent,
                             app_name=APP_NAME,
                             session_service=session_service,
                         )
