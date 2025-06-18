@@ -279,29 +279,7 @@ def update_user_session(db_file_path, sessions_table_name, user_id_to_update, ne
         if conn_sessions:
             conn_sessions.close()
 
-if __name__ == '__main__':
-    # Configuration
-    database_file = 'my_agent_data.db'
-    events_table = 'events'
-    sessions_table = 'sessions'
 
-    # Step 1: Process unprocessed events
-    print("--- Starting Event Processing ---")
-    # process_unprocessed_events now returns a dictionary: {user_id: [interactions]}
-    all_new_user_interactions = process_unprocessed_events(database_file, events_table)
-
-    # Step 2: Update user sessions with their respective new interactions
-    if all_new_user_interactions:
-        print(f"\n--- Starting Session Updates for {len(all_new_user_interactions)} user(s) ---")
-        for user_id, new_interactions_for_user in all_new_user_interactions.items():
-            if new_interactions_for_user: # Ensure there's actually history to append
-                update_user_session(database_file, sessions_table, user_id, new_interactions_for_user)
-            else:
-                print(f"No new interactions to append for user_id: {user_id}, skipping session update for this user.")
-    else:
-        print("\nNo new user interactions found in events, skipping all session updates.")
-    
-    print("\n--- Database processing finished ---")
 
 
     
