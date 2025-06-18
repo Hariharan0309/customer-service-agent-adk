@@ -10,6 +10,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup # Import BeautifulSoup for HTML parsing
+from database_utils import process_unprocessed_events, update_user_session
 
 # If modifying these scopes, delete the file token.json.
 # 'https://www.googleapis.com/auth/gmail.send' allows sending messages.
@@ -214,6 +215,41 @@ async def display_state(
         else:
             print("📚 Products: None")
 
+        # Handle interaction history in a more readable way
+        interaction_history = session.state.get("interaction_history", [])
+        if interaction_history:
+            print("📝 Interaction History:")
+            for idx, interaction in enumerate(interaction_history, 1):
+                # Pretty format dict entries, or just show strings
+                if isinstance(interaction, dict):
+                    action = interaction.get("action", "interaction")
+                    timestamp = interaction.get("timestamp", "unknown time")
+
+                    if action == "user_query":
+                        query = interaction.get("query", "")
+                        print(f'  {idx}. User query at {timestamp}: "{query}"')
+                    elif action == "agent_response":
+                        agent = interaction.get("agent", "unknown")
+                        response = interaction.get("response", "")
+                        # Truncate very long responses for display
+                        if len(response) > 100:
+                            response = response[:97] + "..."
+                        print(f'  {idx}. {agent} response at {timestamp}: "{response}"')
+                    else:
+                        details = ", ".join(
+                            f"{k}: {v}"
+                            for k, v in interaction.items()
+                            if k not in ["action", "timestamp"]
+                        )
+                        print(
+                            f"  {idx}. {action} at {timestamp}"
+                            + (f" ({details})" if details else "")
+                        )
+                else:
+                    print(f"  {idx}. {interaction}")
+        else:
+            print("📝 Interaction History: None")
+
         # Show any additional state keys that might exist
         other_keys = [
             k
@@ -316,6 +352,29 @@ async def call_agent_async(runner, user_id, session_id, query):
                 final_response_text = response
     except Exception as e:
         print(f"{Colors.BG_RED}{Colors.WHITE}ERROR during agent run: {e}{Colors.RESET}")
+    
+    # Configuration
+    database_file = 'my_agent_data.db'
+    events_table = 'events'
+    sessions_table = 'sessions'
+
+    # Step 1: Process unprocessed events
+    print("--- Starting Event Processing ---")
+    # process_unprocessed_events now returns a dictionary: {user_id: [interactions]}
+    all_new_user_interactions = process_unprocessed_events(database_file, events_table)
+
+    # Step 2: Update user sessions with their respective new interactions
+    if all_new_user_interactions:
+        print(f"\n--- Starting Session Updates for {len(all_new_user_interactions)} user(s) ---")
+        for user_id, new_interactions_for_user in all_new_user_interactions.items():
+            if new_interactions_for_user: # Ensure there's actually history to append
+                update_user_session(database_file, sessions_table, user_id, new_interactions_for_user)
+            else:
+                print(f"No new interactions to append for user_id: {user_id}, skipping session update for this user.")
+    else:
+        print("\nNo new user interactions found in events, skipping all session updates.")
+    
+    print("\n--- Database processing finished ---")
 
     # Display state after processing the message
     await display_state(

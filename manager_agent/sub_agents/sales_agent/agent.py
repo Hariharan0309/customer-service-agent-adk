@@ -59,6 +59,10 @@ sales_agent = Agent(
     Purchased Courses: {purchased_products}
     </purchase_info>
 
+    <interaction_history>
+    {interaction_history}
+    </interaction_history>
+
     Products Details:
     1. Moniter
         - id: "moniter_4k"
@@ -98,7 +102,7 @@ sales_agent = Agent(
 
     4. After any interaction:
        - The state will automatically track the interaction
-       - Be ready to hand off to course support after purchase
+       - Be ready to hand off to product support after purchase
 
     Remember:
     - Be helpful but not pushy
