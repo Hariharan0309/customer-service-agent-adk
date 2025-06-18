@@ -11,6 +11,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from manager_agent.agent import manager_agent
 from utils import call_agent_async, parse_sender_info, add_user_query_to_history
+from database_utils import process_unprocessed_events, update_user_session
 
 load_dotenv()
 
@@ -64,13 +65,14 @@ async def main_async():
                         print(f"Using User ID: {USER_ID}")
                         
                         # ===== Mark the message as read =====
-                        #mark_message_as_read(service, msg_id)
+                        mark_message_as_read(service, msg_id)
 
                         # ===== PART 2: Define Initial State =====
                         # This will only be used when creating a new session
                         initial_state = {
                         "user_name":   sender_info_dict['name'],
                         "purchased_products": [],
+                        "interaction_history": [],
                         }
 
                         # ===== PART 3: Session Management - Find or Create =====
