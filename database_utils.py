@@ -83,7 +83,7 @@ def process_unprocessed_events(db_file_path, events_table_name):
         # --- Part 1: Process 'events' table ---
         # Fetch only unprocessed events (processed = 0)
         # Assuming 'id' is the primary key of the events table (first column, row_tuple[0])
-        cursor_events.execute(f"SELECT * FROM {events_table_name} WHERE processed = 0")
+        cursor_events.execute(f"SELECT id, user_id, timestamp, content FROM {events_table_name} WHERE processed = 0")
         all_unprocessed_events_data = cursor_events.fetchall()
 
         if all_unprocessed_events_data:
@@ -92,28 +92,27 @@ def process_unprocessed_events(db_file_path, events_table_name):
                 event_id_to_process = row_tuple[0] # Assuming the first column is the event's PK
                 current_event_user_id = None
                 try:
-                    # Extract user_id for the current event row (column index 2)
-                    if len(row_tuple) > 2 and row_tuple[2] is not None:
-                        current_event_user_id = row_tuple[2]
-
-                    # Expected indices based on your data structure:
-                    # row_tuple[5]: actor (e.g., 'user', 'sales_agent', 'manager_agent')
-                    # row_tuple[7]: timestamp
-                    # row_tuple[8]: JSON payload string
-                    if len(row_tuple) < 9:  # Ensure row has enough elements
-                        print(f"Event ID {event_id_to_process}: Row too short, skipping.")
-                        continue
+                    # Expected indices based on the new SELECT query:
+                    # row_tuple[0]: id (PK)
+                    # row_tuple[1]: user_id
+                    # row_tuple[2]: timestamp
+                    # row_tuple[3]: JSON payload string ('content' column)
                     
-                    if not current_event_user_id:
-                        print(f"Event ID {event_id_to_process}: Missing user_id in event row, skipping.")
+                    if len(row_tuple) < 4:  # Ensure row has enough elements (id, user_id, timestamp, content)
+                        print(f"Event ID {event_id_to_process}: Row too short ({len(row_tuple)} columns), skipping.")
                         continue
 
-                    actor = row_tuple[5]
-                    timestamp = row_tuple[7]
-                    json_payload_str = row_tuple[8]
+                    current_event_user_id = row_tuple[1]
+                    timestamp = row_tuple[2]
+                    json_payload_str = row_tuple[3]
+
+                    if not current_event_user_id:
+                        print(f"Event ID {event_id_to_process}: Missing user_id, skipping.")
+                        continue
 
                     # Skip if essential data is missing or JSON payload isn't a string
-                    if not actor or not timestamp or not json_payload_str or not isinstance(json_payload_str, str):
+                    # We will get the actor from the JSON payload
+                    if not timestamp or not json_payload_str or not isinstance(json_payload_str, str):
                         print(f"Event ID {event_id_to_process}: Essential data missing or invalid JSON payload string, skipping.")
                         continue
 
@@ -124,6 +123,7 @@ def process_unprocessed_events(db_file_path, events_table_name):
                         print(f"Event ID {event_id_to_process}: No message parts found, skipping.")
                         continue
 
+                    actor = json_payload.get("role") # Extract actor (role) from JSON
                     # We are interested in the first part for text messages
                     first_part = message_parts[0]
                     message_text = first_part.get("text")
@@ -135,7 +135,11 @@ def process_unprocessed_events(db_file_path, events_table_name):
                         if not cleaned_message_text: # Skip if text becomes empty after cleaning
                             print(f"Event ID {event_id_to_process}: Message text empty after cleaning, skipping.")
                             continue
-
+                            
+                        if not actor:
+                            print(f"Event ID {event_id_to_process}: Missing actor (role) in JSON payload, skipping.")
+                            continue
+                            
                         if actor == 'user':
                             user_query_dict = {
                                 "action": "user_query",
@@ -161,6 +165,8 @@ def process_unprocessed_events(db_file_path, events_table_name):
                         db_conn_events.commit()
                         # print(f"Event ID {event_id_to_process} marked as processed.")
                     else:
+                        cursor_events.execute(f"UPDATE {events_table_name} SET processed = 1 WHERE id = ?", (event_id_to_process,))
+                        db_conn_events.commit()
                         print(f"Event ID {event_id_to_process}: No valid message text found, skipping.")
                 
                 except (IndexError, TypeError, json.JSONDecodeError, AttributeError) as e:
