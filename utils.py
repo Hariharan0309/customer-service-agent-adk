@@ -48,108 +48,6 @@ class Colors:
     BG_WHITE = "\033[47m"
 
 
-async def update_interaction_history(session_service, app_name, user_id, session_id, entry):
-    """Add an entry to the interaction history in state.
-
-    Args:
-        session_service: The session service instance
-        app_name: The application name
-        user_id: The user ID
-        session_id: The session ID
-        entry: A dictionary containing the interaction data
-            - requires 'action' key (e.g., 'user_query', 'agent_response')
-            - other keys are flexible depending on the action type
-    """
-    try:
-        # Get current session
-        session = await session_service.get_session(
-            app_name=app_name, user_id=user_id, session_id=session_id
-        )
-
-        # Get current interaction history
-        interaction_history = session.state.get("interaction_history", [])
-
-        # Add timestamp if not already present
-        if "timestamp" not in entry:
-            entry["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Add the entry to interaction history
-        interaction_history.append(entry)
-
-        # Create updated state
-        updated_state = session.state.copy()
-        updated_state["interaction_history"] = interaction_history
-
-        # In utils.py, inside update_interaction_history, before calling update_session:
-        try:
-            # ... (your existing code to get session and prepare updated_state) ...
-
-            # ===== BEGIN DEBUG =====
-            print(f"DEBUG: Type of session_service: {type(session_service)}")
-            if hasattr(session_service, '__class__') and hasattr(session_service.__class__, '__module__'):
-                print(f"DEBUG: Module of session_service: {session_service.__class__.__module__}")
-                print(f"DEBUG: Abstract methods: {session_service.__abstractmethods__}")
-            else:
-                print(f"DEBUG: Module of session_service could not be determined.")
-
-            print(f"DEBUG: Attributes/methods on session_service: {dir(session_service)}")
-            # ===== END DEBUG =====
-
-            # The failing call:
-            await session_service.update_session(
-                app_name=app_name,
-                user_id=user_id,
-                session_id=session_id,
-                state=updated_state,
-            )
-        except Exception as e:
-            print(f"Error updating interaction history: {e}")
-            # Optionally, re-raise or handle more specifically
-            # raise
-
-
-        # Update the existing session with the new state
-        await session_service.create_session(
-            app_name=app_name,
-            user_id=user_id,
-            session_id=session_id,
-            state=updated_state,
-        )
-    except Exception as e:
-        print(f"Error updating interaction history: {e}")
-
-
-async def add_user_query_to_history(session_service, app_name, user_id, session_id, query):
-    """Add a user query to the interaction history."""
-    await update_interaction_history(
-        session_service,
-        app_name,
-        user_id,
-        session_id,
-        {
-            "action": "user_query",
-            "query": query,
-        },
-    )
-
-
-async def add_agent_response_to_history(
-    session_service, app_name, user_id, session_id, agent_name, response
-):
-    """Add an agent response to the interaction history."""
-    await update_interaction_history(
-        session_service,
-        app_name,
-        user_id,
-        session_id,
-        {
-            "action": "agent_response",
-            "agent": agent_name,
-            "response": response,
-        },
-    )
-
-
 def parse_sender_info(sender_string: str | None, default_name: str = "Unknown Sender", default_email: str = "unknown@example.com") -> dict:
     """
     Parses a display name and email address from an email sender string.
@@ -254,7 +152,7 @@ async def display_state(
         other_keys = [
             k
             for k in session.state.keys()
-            if k not in ["user_name", "purchased_products"]
+            if k not in ["user_name", "purchased_products", "interaction_history"]
         ]
         if other_keys:
             print("🔑 Additional State:")
@@ -552,54 +450,6 @@ def mark_message_as_read(service, msg_id):
     except Exception as e:
         print(f"An error occurred while marking message as read: {e}")
         return False
-
-def read_unread_emails_one_by_one(service):
-    """
-    Fetches unread emails one by one, displays their content, and marks them as read.
-    Args:
-        service: Authenticated Gmail API service object.
-    """
-    try:
-        # Fetch unread messages
-        results = service.users().messages().list(userId='me', q='is:unread').execute()
-        messages = results.get('messages', [])
-
-        if not messages:
-            print('\nNo unread messages found.')
-            return
-
-        print(f'\nFound {len(messages)} unread email(s). Processing one by one:')
-        print('----------------------------------------------------')
-        
-        for i, message in enumerate(messages):
-            msg_id = message['id']
-            print(f"\n--- Processing Unread Email {i + 1}/{len(messages)} ---")
-            
-            # Get email content
-            email_data = get_message_content(service, msg_id)
-            
-            if email_data:
-                print(json.dumps(email_data, indent=4))
-                
-                # Ask user if they want to mark as read
-                action = input("\nMark this email as read? (y/n, default: y): ").lower()
-                if action == 'n':
-                    print("Email left as unread.")
-                else:
-                    mark_message_as_read(service, msg_id)
-            else:
-                print(f"Could not retrieve content for unread message ID: {msg_id}")
-            
-            if i < len(messages) - 1:
-                input("\nPress Enter to process the next unread email...")
-        
-        print('\n----------------------------------------------------')
-        print('Finished processing unread emails.')
-
-    except HttpError as error:
-        print(f'An HTTP error occurred: {error}')
-    except Exception as e:
-        print(f"An overall error occurred during unread email processing: {e}")
 
 def create_message_and_send(service, sender_email, to_email, subject, message_text):
     """
