@@ -96,8 +96,11 @@ async def display_state(
         print(f"\n{'-' * 10} {label} {'-' * 10}")
 
         # Handle the user name
-        user_name = session.state.get("user_name", "Unknown")
-        print(f"👤 User: {user_name}")
+        account_info = session.state.get("account_information", {})
+        user_name = account_info.get("user_name", "Unknown")
+        email_id = account_info.get("email_id", "N/A")
+        phone_no = account_info.get("phone_no", "N/A")
+        print(f"👤 User: {user_name} (Email: {email_id}, Phone: {phone_no})")
 
         # Handle purchased courses
         purchased_products = session.state.get("purchased_products", [])
@@ -152,7 +155,7 @@ async def display_state(
         other_keys = [
             k
             for k in session.state.keys()
-            if k not in ["user_name", "purchased_products", "interaction_history"]
+            if k not in ["account_information", "purchased_products", "interaction_history"]
         ]
         if other_keys:
             print("🔑 Additional State:")

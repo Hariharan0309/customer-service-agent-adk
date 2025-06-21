@@ -52,7 +52,7 @@ sales_agent = Agent(
     for the Products present in the Computer store.
 
     <user_info>
-    Name: {user_name}
+    Name: {account_information.user_name}
     </user_info>
 
     <purchase_info>
