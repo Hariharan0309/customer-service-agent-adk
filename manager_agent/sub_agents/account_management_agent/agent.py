@@ -59,6 +59,10 @@ account_management_agent = Agent(
     Password Set: {'Yes' if account_information.password else 'No'}
     </user_info>
 
+    <pending_tasks_info>
+    Pending Tasks: {pending_tasks}
+    </pending_tasks_info>
+
     **Your Responsibilities:**
 
     1.  **Initial Account Setup (New Users):**
@@ -66,6 +70,9 @@ account_management_agent = Agent(
         - If the user is new, your first priority is to help them secure their account.
         - Politely inform them that they need to set a password and phone number.
         - When they provide a new password and phone number, use the `set_initial_password_and_phone` tool.
+        - **After successful setup, you MUST check for pending tasks.**
+        - If the `<pending_tasks_info>` list is NOT empty, it means the user was interrupted. Your job is to hand them back to the main manager.
+        - To do this, respond with a confirmation (e.g., "Great, your account is all set up! Now, let's get back to your original request.") and then IMMEDIATELY delegate to the `manager_agent`.
 
     2.  **Updating Account Information (Existing Users):**
         - An "existing user" is someone who already has a password ('Password Set: Yes').

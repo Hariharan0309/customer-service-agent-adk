@@ -290,7 +290,38 @@ def update_user_session(db_file_path, sessions_table_name, user_id_to_update, ne
         if conn_sessions:
             conn_sessions.close()
 
+def create_and_populate_support_staff_table(db_path, table_name="support_staff"):
+    """Creates and populates the support staff table if it doesn't exist."""
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
 
+        # Create table if it doesn't exist
+        cursor.execute(f'''
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone_number TEXT,
+                is_free BOOLEAN NOT NULL CHECK (is_free IN (0, 1)),
+                assigned_user TEXT
+            )
+        ''')
 
-
-    
+        # Check if table is empty
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+        if cursor.fetchone()[0] == 0:
+            # Populate with sample data
+            staff_data = [
+                ('Alice', '111-222-3333', 1, None),
+                ('Bob', '444-555-6666', 1, None),
+                ('Charlie', '777-888-9999', 0, 'previous_user@example.com') # Charlie is busy
+            ]
+            cursor.executemany(f"INSERT INTO {table_name} (name, phone_number, is_free, assigned_user) VALUES (?, ?, ?, ?)", staff_data)
+            conn.commit()
+            print(f"Table '{table_name}' created and populated with sample data.")
+    except sqlite3.Error as e:
+        print(f"Database error while creating/populating '{table_name}': {e}")
+    finally:
+        if conn:
+            conn.close()

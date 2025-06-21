@@ -1,5 +1,6 @@
 from utils import authenticate_gmail_api, get_message_content, create_message_and_send, mark_message_as_read, call_agent_async, parse_sender_info
 import json
+from database_utils import create_and_populate_support_staff_table
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -15,12 +16,17 @@ load_dotenv()
 
 # ===== PART 1: Initialize Persistent Session Service =====
 # Using SQLite database for persistent storage
-db_url = "sqlite:///./my_agent_data.db"
+DB_PATH = "./my_agent_data.db"
+db_url = f"sqlite:///{DB_PATH}"
 session_service = DatabaseSessionService(db_url=db_url)
 
 
 async def main_async():
     # Setup constants
+
+    # Create support staff table on startup if it doesn't exist
+    create_and_populate_support_staff_table(DB_PATH)
+
     APP_NAME = "Customer Service Agent"
     USER_ID = "Hariharan"
     # ===== PART 1: Authenticate Gmail API and Reading the Gmail=====
@@ -76,6 +82,8 @@ async def main_async():
                             },
                             "purchased_products": [],
                             "interaction_history": [],
+                            "assigned_support_staff": {},
+                            "pending_tasks": [],
                         }
 
                         # ===== PART 3: Session Management - Find or Create =====

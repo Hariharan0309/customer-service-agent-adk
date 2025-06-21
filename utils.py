@@ -151,11 +151,30 @@ async def display_state(
         else:
             print("📝 Interaction History: None")
 
+        # Handle assigned support staff
+        assigned_staff = session.state.get("assigned_support_staff", {})
+        if assigned_staff:
+            print("🤝 Assigned Support:")
+            staff_name = assigned_staff.get("name", "N/A")
+            staff_status = assigned_staff.get("status", "N/A")
+            print(f"  - Specialist: {staff_name} ({staff_status})")
+        else:
+            print("🤝 Assigned Support: None")
+
+        # Handle pending tasks
+        pending_tasks = session.state.get("pending_tasks", [])
+        if pending_tasks:
+            print("⏳ Pending Tasks:")
+            for task in pending_tasks:
+                print(f"  - {task.get('description', 'No description')}")
+        else:
+            print("⏳ Pending Tasks: None")
+
         # Show any additional state keys that might exist
         other_keys = [
             k
             for k in session.state.keys()
-            if k not in ["account_information", "purchased_products", "interaction_history"]
+            if k not in ["account_information", "purchased_products", "interaction_history", "assigned_support_staff", "pending_tasks"]
         ]
         if other_keys:
             print("🔑 Additional State:")
