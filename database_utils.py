@@ -234,7 +234,12 @@ def update_user_session(db_file_path, sessions_table_name, user_id_to_update, ne
             sample_session_id = f"sample-session-{datetime.now().strftime('%Y%m%d%H%M%S')}"
             sample_user_name = user_id_to_update.split('@')[0] if isinstance(user_id_to_update, str) and '@' in user_id_to_update else "UnknownUser"
             sample_state = {
-                "user_name": sample_user_name,
+                "account_information": {
+                    "user_name": sample_user_name,
+                    "password": "",
+                    "email_id": user_id_to_update,
+                    "phone_no": ""
+                },
                 "purchased_products": [],
                 "interaction_history": [{"action": "system_init", "timestamp": datetime.now().isoformat(), "message": "Initial dummy session state."}]
             }
