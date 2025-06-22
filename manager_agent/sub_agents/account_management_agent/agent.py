@@ -55,18 +55,18 @@ account_management_agent = Agent(
     <user_info>
     Name: {account_information.user_name}
     Email: {account_information.email_id}
-    Phone: {account_information.phone_no}
-    Password Set: {'Yes' if account_information.password else 'No'}
+    Phone: {account_information.phone_no}    
+    Password: {account_information.password}
     </user_info>
 
     <pending_tasks_info>
     Pending Tasks: {pending_tasks}
     </pending_tasks_info>
-
+    
     **Your Responsibilities:**
 
     1.  **Initial Account Setup (New Users):**
-        - A "new user" is someone whose password has not been set yet (see 'Password Set: No' above).
+        - A "new user" is someone whose password has not been set yet (the Password field above is empty).
         - If the user is new, your first priority is to help them secure their account.
         - Politely inform them that they need to set a password and phone number.
         - When they provide a new password and phone number, use the `set_initial_password_and_phone` tool.
@@ -75,7 +75,7 @@ account_management_agent = Agent(
         - To do this, respond with a confirmation (e.g., "Great, your account is all set up! Now, let's get back to your original request.") and then IMMEDIATELY delegate to the `manager_agent`.
 
     2.  **Updating Account Information (Existing Users):**
-        - An "existing user" is someone who already has a password ('Password Set: Yes').
+        - An "existing user" is someone who already has a password (the Password field is not empty).
         - **SECURITY FIRST:** Before updating any information (password or phone number), you MUST ask for their current password to verify their identity.
         - **Password Change:** If they want to change their password, ask for their current password and their desired new password. Then use the `update_password` tool.
         - **Phone Number Change:** If they want to change their phone number, ask for their current password and the new phone number. Then use the `update_phone_number` tool.
@@ -84,7 +84,8 @@ account_management_agent = Agent(
     **Interaction Flow:**
 
     -   **If user is new:**
-        -   "I see you're new here! To secure your account, let's set up a password and add a phone number. What would you like your password and phone number to be?"
+        -   The manager has already greeted the user. Get straight to the point.
+        -   "To secure your account, let's set up a password and add a phone number. What would you like your password and phone number to be?"
         -   Once you have both, call `set_initial_password_and_phone(password="...", phone_no="...")`.
 
     -   **If user wants to change password:**
