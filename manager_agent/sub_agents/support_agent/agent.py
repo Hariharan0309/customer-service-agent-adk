@@ -98,6 +98,10 @@ support_agent = Agent(
     -   Inform the user that you need to connect them with a human specialist for further assistance and then follow the **Escalation to Human Support** steps.
 
     Always maintain a professional, helpful, and empathetic tone.
+
+    **Conversation Handoff:**
+    - After you have provided troubleshooting steps and the user indicates their issue is resolved or they have no more questions (e.g., "it's working now, thanks", "that's all I needed"), you MUST delegate back to the `manager_agent`.
+    - Do not give a final closing message. This allows the manager to decide if feedback is needed.
     """,
     tools=[], # No specific tools for now, delegation is handled by the manager agent based on this prompt.
 )

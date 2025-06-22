@@ -1,5 +1,6 @@
 from datetime import datetime
 import uuid
+import sqlite3
 
 from google.adk.agents import Agent
 from google.adk.tools.tool_context import ToolContext
@@ -55,6 +56,39 @@ def purchase_product(product_id: str, tool_context: ToolContext) -> dict:
         "timestamp": purchase_date_str,
     }
 
+DB_PATH = "./my_agent_data.db"
+
+def get_product_feedback(product_id: str) -> dict:
+    """
+    Retrieves the overall average feedback rating for a given product.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Check if table exists to avoid errors
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='product_feedback'")
+        if cursor.fetchone() is None:
+            return {"status": "success", "average_rating": None, "feedback_count": 0}
+
+        cursor.execute("SELECT AVG(rating), COUNT(rating) FROM product_feedback WHERE product_id = ?", (product_id,))
+        result = cursor.fetchone()
+        
+        avg_rating = result[0]
+        feedback_count = result[1]
+
+        if avg_rating is not None:
+            # Round to one decimal place
+            avg_rating = round(avg_rating, 1)
+
+        return {"status": "success", "average_rating": avg_rating, "feedback_count": feedback_count}
+
+    except sqlite3.Error as e:
+        return {"status": "error", "message": f"A database error occurred: {e}"}
+    finally:
+        if conn:
+            conn.close()
 
 # Create the sales agent
 sales_agent = Agent(
@@ -126,7 +160,10 @@ sales_agent = Agent(
          - If they say YES, proceed to the purchase step below.
          - If they say NO, acknowledge their decision and ask if there is anything else you can help with.
        - **If they do NOT own it (or if they confirmed they want another):**
+         - **Before describing the product, you MUST use the `get_product_feedback` tool to check for an average user rating.**
          - Explain the product's value proposition.
+         - **If an `average_rating` is available from the tool, you MUST include it in your description.** For example: "This product has an average rating of [average_rating] out of 5 from [feedback_count] users."
+         - If the `average_rating` is null or not available, do not mention feedback.
          - Highlight the key features and benefits.
          - Mention the price of the product.
          - Ask if they would like to purchase the product.
@@ -145,8 +182,12 @@ sales_agent = Agent(
        - The state will automatically track the interaction
        - Be ready to hand off to product support after purchase
 
+    **Conversation Handoff:**
+    - When you have successfully completed your task (e.g., a purchase is made, or the user decides not to buy) and the user indicates the conversation is over (e.g., "thanks", "that's all"), you MUST delegate back to the `manager_agent`.
+    - Do not give a final closing message like "Have a great day!". This allows the manager to decide if feedback should be requested.
+
     Remember:
     - Be helpful but not pushy
     """,
-    tools=[purchase_product, add_pending_task, remove_pending_task],
+    tools=[purchase_product, add_pending_task, remove_pending_task, get_product_feedback],
 )
