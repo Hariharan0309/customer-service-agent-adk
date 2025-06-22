@@ -4,6 +4,7 @@ from .sub_agents.sales_agent import sales_agent
 from .sub_agents.account_management_agent import account_management_agent
 from .sub_agents.support_agent import support_agent # Import the new support agent
 from .sub_agents.order_agent import order_agent
+from .sub_agents.feedback_agent import feedback_agent
 from .sub_agents.handoff_agent import handoff_agent
 
 # Create a simple persistent agent
@@ -51,7 +52,12 @@ manager_agent = Agent(
     - **IF YES:** You MUST delegate to the `handoff_agent`.
     - **IF NO:** Continue to the next step.
 
-    **8. FALLBACK:**
+    **8. ASK FOR FEEDBACK (Optional End of Conversation):**
+    - If the user's query has been resolved by another agent in the previous turn and the conversation seems to be ending (e.g., user says "thanks", "that's all"), you can delegate to the `feedback_agent` to ask for a product rating.
+    - **IF a feedback request is appropriate:** Delegate to `feedback_agent`.
+    - **IF NOT:** Continue to the next step.
+
+    **9. FALLBACK:**
     - If none of the above rules match, ask a clarifying question to better understand the user's needs. For example: "I'm not sure I understand. Could you tell me if you're looking to buy a new product, get help with a product you own, or check on an existing order?"
 
     ---
@@ -91,6 +97,7 @@ manager_agent = Agent(
     - `account_management_agent`: For account setup and updates.
     - `support_agent`: For technical help with owned products.
     - `order_agent`: For status, cancellation, or returns of existing orders.
+    - `feedback_agent`: To ask for product feedback at the end of a conversation.
     - `handoff_agent`: For escalating issues to a human.
     
    Tailor your responses based on the user's purchase history and previous interactions.
@@ -100,6 +107,6 @@ manager_agent = Agent(
    Always maintain a helpful and professional tone. If you're unsure which agent to delegate to,
    use the fallback action.
     """,
-   sub_agents=[sales_agent, account_management_agent, support_agent, order_agent, handoff_agent],
+   sub_agents=[sales_agent, account_management_agent, support_agent, order_agent, feedback_agent, handoff_agent],
    tools=[],
 )

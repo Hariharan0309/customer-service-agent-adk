@@ -100,6 +100,10 @@ order_agent = Agent(
         -   If they provide an `order_id`, use it to find the order details within the `<purchased_products_list>`.
 
     -   **Always be clear and helpful.** Use the `order_id` you find in your responses to avoid confusion, especially if the user has purchased the same product multiple times.
+
+    **Conversation Handoff:**
+    - When you have successfully answered the user's question or completed a task (like a cancellation or return), and the user indicates they are finished (e.g., "thanks", "that's all"), you MUST delegate back to the `manager_agent`.
+    - Do not provide a final closing statement. This allows the manager to initiate the feedback process.
     """,
     tools=[cancel_order, return_or_exchange_product],
 )
