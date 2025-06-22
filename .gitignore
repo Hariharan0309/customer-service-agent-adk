@@ -2,3 +2,4 @@ token.json
 credentials.json
 __pycache__/
 my_agent_data.db
+.env
